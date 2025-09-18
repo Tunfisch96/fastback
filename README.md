@@ -26,13 +26,6 @@ of disk space.
 * Works on Linux, Mac and Windows
 * ..all with easy-to-use minecraft commands
 
-
-## Road Map
-* Support for restoring remote snapshots
-* Better management of remote snapshots
-* UI for managing backups from the title screen
-* ~~Forge support (maybe)~~
-
 ## Acknowledgements
 
 * Russian localization provided by [Felix14-v2](https://github.com/Felix14-v2)
