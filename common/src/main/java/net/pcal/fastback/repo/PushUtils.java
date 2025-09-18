@@ -23,6 +23,7 @@ import net.pcal.fastback.config.GitConfig;
 import net.pcal.fastback.logging.UserLogger;
 import net.pcal.fastback.logging.UserMessage;
 import net.pcal.fastback.utils.ProcessException;
+import net.pcal.fastback.utils.ProcessUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -37,6 +38,8 @@ import org.eclipse.jgit.transport.URIish;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -44,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static net.pcal.fastback.config.FastbackConfigKey.IS_NATIVE_GIT_ENABLED;
 import static net.pcal.fastback.config.FastbackConfigKey.IS_REMOTE_TEMP_BRANCH_CLEANUP_ENABLED;
@@ -75,6 +79,7 @@ abstract class PushUtils {
     }
 
     // TODO stop throwing IOE
+    // TODO stop passing repo
     static void doPush(SnapshotId sid, RepoImpl repo, UserLogger ulog) throws IOException, ProcessException {
         try {
             final GitConfig conf = repo.getConfig();
@@ -84,8 +89,13 @@ abstract class PushUtils {
                 return;
             }
             final Git jgit = repo.getJGit();
-            final Collection<Ref> remoteBranchRefs = jgit.lsRemote().setHeads(true).setTags(false).
-                    setRemote(conf.getString(REMOTE_NAME)).call();
+            final Collection<String> remoteBranchRefs;
+            final String remoteName = conf.getString(REMOTE_NAME);
+            if (conf.getBoolean(IS_NATIVE_GIT_ENABLED)) {
+                remoteBranchRefs = native_lsRemote(repo.getWorkTree().toPath(), remoteName, true, false);
+            } else {
+                remoteBranchRefs = jgit_lsRemote(repo.getJGit(), remoteName, true, false);
+            }
             final ListMultimap<WorldId, SnapshotId> snapshotsPerWorld =
                     SnapshotIdUtils.getSnapshotsPerWorld(remoteBranchRefs, repo.getSidCodec());
             if (conf.getBoolean(IS_UUID_CHECK_ENABLED)) {
@@ -122,6 +132,7 @@ abstract class PushUtils {
         }
     }
 
+    // TODO stop passing repo
     private static void native_doPush(final Repo repo, final String branchNameToPush, final UserLogger log) throws ProcessException {
         syslog().debug("Start native_push");
         final File worktree = repo.getWorkTree();
@@ -140,6 +151,33 @@ abstract class PushUtils {
         syslog().info("Doing simple push of " + branchNameToPush);
         jgit.push().setProgressMonitor(pm).setRemote(remoteName).
                 setRefSpecs(new RefSpec(branchNameToPush + ":" + branchNameToPush)).call();
+    }
+
+    static Collection<String> native_lsRemote(final Path worktree, final String remote, final boolean heads, final boolean tags) throws ProcessException {
+        final List<String> command = new ArrayList<>(asList("git", "-C", worktree.toAbsolutePath().toString(), "ls-remote"));
+        if (heads) command.add("--branches");
+        if (tags) command.add("--tags");
+        command.add(remote);
+
+        final List<String> result = new ArrayList<>();
+        ProcessUtils.doExec(
+                command.toArray(String[]::new),
+                Map.of(),
+                line -> {
+                    if (!line.isEmpty()) {
+                        String refName = line.split("\t")[1];
+                        result.add(refName);
+                    }
+                },
+                unused -> {},
+                false
+        );
+        return result;
+    }
+
+    static Collection<String> jgit_lsRemote(final Git jgit, final String remote, final boolean heads, final boolean tags) throws GitAPIException {
+        return jgit.lsRemote().setHeads(heads).setTags(tags).setRemote(remote).call()
+                .stream().map(Ref::getName).toList();
     }
 
     /**
@@ -175,7 +213,7 @@ abstract class PushUtils {
             } else {
                 final Collection<Ref> localBranchRefs = jgit.branchList().call();
                 final ListMultimap<WorldId, SnapshotId> localSnapshotsPerWorld =
-                        SnapshotIdUtils.getSnapshotsPerWorld(localBranchRefs, repo.getSidCodec());
+                        SnapshotIdUtils.getSnapshotsPerWorld(localBranchRefs.stream().map(Ref::getName).toList(), repo.getSidCodec());
                 final List<SnapshotId> localSnapshots = localSnapshotsPerWorld.get(worldUuid);
                 remoteSnapshots.retainAll(localSnapshots);
                 if (remoteSnapshots.isEmpty()) {
@@ -235,6 +273,7 @@ abstract class PushUtils {
         }
     }
 
+    // TODO stop passing repo
     private static boolean doWorldIdCheck(RepoImpl repo, Set<WorldId> remoteWorldUuids) throws IOException {
         final WorldId localUuid = repo.getWorldId();
         if (remoteWorldUuids.size() > 2) {
