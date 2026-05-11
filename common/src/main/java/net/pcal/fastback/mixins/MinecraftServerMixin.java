@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
-package net.pcal.fastback.mod.fabric.mixins;
+package net.pcal.fastback.mixins;
 
 import net.minecraft.server.MinecraftServer;
-import net.pcal.fastback.mod.fabric.MixinGateway;
+import net.pcal.fastback.MixinGateway;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -42,7 +42,7 @@ public class MinecraftServerMixin {
      * the autosave is done.
      */
     @Redirect(method = "autoSave()V",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveEverything(ZZZ)Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveEverything(ZZZ)Z"), remap = false)
     public boolean fastback_saveAll(MinecraftServer instance, boolean suppressLogs, boolean flush, boolean force) {
         boolean result = instance.saveEverything(suppressLogs, flush, force);
         MixinGateway.get().autoSaveCompleted();
@@ -52,7 +52,7 @@ public class MinecraftServerMixin {
     /**
      * Intercept save so we can hard-disable saving during critical parts of the backup.
      */
-    @Inject(at = @At("HEAD"), method = "saveAllChunks(ZZZ)Z", cancellable = true)
+    @Inject(at = @At("HEAD"), method = "saveAllChunks(ZZZ)Z", cancellable = true, remap = false)
     public void fastback_save(boolean suppressLogs, boolean flush, boolean force, CallbackInfoReturnable<Boolean> ci) {
         synchronized (this) {
             if (MixinGateway.get().isWorldSaveEnabled()) {
@@ -68,7 +68,7 @@ public class MinecraftServerMixin {
     /**
      * Intercept saveAll so we can hard-disable saving during critical parts of the backup.
      */
-    @Inject(at = @At("HEAD"), method = "saveEverything(ZZZ)Z", cancellable = true)
+    @Inject(at = @At("HEAD"), method = "saveEverything(ZZZ)Z", cancellable = true, remap = false)
     public void fastback_saveAll(boolean suppressLogs, boolean flush, boolean force, CallbackInfoReturnable<Boolean> ci) {
         synchronized (this) {
             if (MixinGateway.get().isWorldSaveEnabled()) {

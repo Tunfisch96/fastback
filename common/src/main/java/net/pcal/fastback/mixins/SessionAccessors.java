@@ -16,33 +16,18 @@
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.pcal.fastback.mod.fabric;
+package net.pcal.fastback.mixins;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
 /**
- * Singleton 'gateway' that mixin code goes through to call back into the mod.
- *
  * @author pcal
- * @since 0.13.1
+ * @since 0.0.1
  */
-public interface MixinGateway {
-
-    static MixinGateway get() {
-        return Singleton.INSTANCE;
-    }
-
-    boolean isWorldSaveEnabled();
-
-    void autoSaveCompleted();
-
-    void renderMessageScreen(GuiGraphics drawContext);
-
-    class Singleton {
-        private static MixinGateway INSTANCE = null;
-
-        public static void register(MixinGateway gateway) {
-            Singleton.INSTANCE = gateway;
-        }
-    }
+@Mixin(LevelStorageSource.LevelStorageAccess.class)
+public interface SessionAccessors {
+    @Accessor(remap = false)
+    LevelStorageSource.LevelDirectory getLevelDirectory();
 }
