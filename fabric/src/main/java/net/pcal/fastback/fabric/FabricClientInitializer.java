@@ -22,16 +22,11 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.pcal.fastback.common.logging.Log4jLogger;
-import net.pcal.fastback.common.logging.SystemLogger;
-import net.pcal.fastback.common.mod.LifecycleListener;
-import org.apache.logging.log4j.LogManager;
-
-import static net.pcal.fastback.fabric.BaseFabricProvider.MOD_ID;
-
+import net.pcal.fastback.common.mod.ClientHelper;
+import net.pcal.fastback.common.mod.Mod;
 
 /**
- * Initializer that runs in a client.
+ * Initializer that runs on the client (both integrated and dedicated-server-from-client).
  *
  * @author pcal
  * @since 0.0.1
@@ -40,35 +35,19 @@ public class FabricClientInitializer implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        SystemLogger.Singleton.register(new Log4jLogger(LogManager.getLogger(MOD_ID)));
-        final FabricClientProvider clientProvider = new FabricClientProvider();
-        final LifecycleListener lifecycle = clientProvider.initialize();
-
         ClientLifecycleEvents.CLIENT_STARTED.register(
                 minecraftClient -> {
-                    clientProvider.setMinecraftClient(minecraftClient);
-                    HudRenderCallback.EVENT.register(clientProvider);
-                }
-        );
-        ClientLifecycleEvents.CLIENT_STOPPING.register(
-                minecraftClient -> {
-                    clientProvider.setMinecraftClient(null);
+                    Mod.initializeForClient(new FabricLoaderHelper(), new ClientHelper(minecraftClient));
+                    HudRenderCallback.EVENT.register((guiGraphics,deltaTracker)->{
+                        Mod.mod().renderHud(guiGraphics);
+                    });
                 }
         );
         ServerLifecycleEvents.SERVER_STARTING.register(
-                minecraftServer -> {
-                    clientProvider.setMinecraftServer(minecraftServer);
-                    lifecycle.onWorldStart();
-                }
+                minecraftServer -> Mod.mod().onWorldStart(minecraftServer)
         );
         ServerLifecycleEvents.SERVER_STOPPED.register(
-                minecraftServer -> {
-                    try {
-                        lifecycle.onWorldStop();
-                    } finally {
-                        clientProvider.setMinecraftServer(null);
-                    }
-                }
+                minecraftServer -> Mod.mod().onWorldStop()
         );
     }
 }

@@ -16,11 +16,8 @@
  * along with this program; If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.pcal.fastback.fabric;
+package net.pcal.fastback.common.mod;
 
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
@@ -29,16 +26,17 @@ import net.minecraft.network.chat.Component;
 import net.pcal.fastback.common.logging.UserMessage;
 import net.pcal.fastback.common.mixins.ScreenAccessors;
 
-import java.nio.file.Path;
-
 import static net.pcal.fastback.common.logging.SystemLogger.syslog;
-import static net.pcal.fastback.common.mod.MinecraftProvider.messageToText;
+import static net.pcal.fastback.common.mod.UserMessageUtil.messageToText;
 
 /**
+ * Client-only helper services. Holds vanilla Minecraft client state and provides
+ * concrete implementations for HUD and message screen management.
+ *
  * @author pcal
- * @since 0.1.0
+ * @since 0.2.0
  */
-final class FabricClientProvider extends BaseFabricProvider implements HudRenderCallback {
+public final class ClientHelper {
 
     // ======================================================================
     // Constants
@@ -48,52 +46,33 @@ final class FabricClientProvider extends BaseFabricProvider implements HudRender
     // ======================================================================
     // Fields
 
-    private Minecraft client = null;
+    private final Minecraft client;
     private Component hudText;
     private long hudTextTime;
 
-    // ====================================================================
-    // Public methods
+    // ======================================================================
+    // Constructor
 
-    public void setMinecraftClient(Minecraft client) {
-        if ((this.client == null) == (client == null)) throw new IllegalStateException();
+    public ClientHelper(Minecraft client) {
         this.client = client;
     }
 
     // ======================================================================
-    // MixinGateway implementation
+    // Concrete — vanilla Minecraft implementations
 
-    @Override
-    public void renderMessageScreen(GuiGraphics guiGraphics) {
-        renderHud(guiGraphics);
-    }
-
-    // ====================================================================
-    // FrameworkProvider implementation
-
-    @Override
-    public boolean isClient() {
-        return true;
-    }
-
-    @Override
     public void setHudText(UserMessage userMessage) {
         if (userMessage == null) {
             clearHudText();
         } else {
-            this.hudText = messageToText(userMessage); // so the hud renderer can find it
+            this.hudText = messageToText(userMessage);
             this.hudTextTime = System.currentTimeMillis();
         }
     }
 
-    @Override
     public void clearHudText() {
         this.hudText = null;
-        // TODO someday it might be nice to bring back the fading text effect.  But getting to it properly
-        // clean up 100% of the time is more than I want to deal with right now.
     }
 
-    @Override
     public void setMessageScreenText(UserMessage userMessage) {
         if (this.client == null) return;
         final Screen screen = client.screen;
@@ -102,28 +81,15 @@ final class FabricClientProvider extends BaseFabricProvider implements HudRender
         }
     }
 
-    @Override
-    public Path getSavesDir() {
-        return FabricLoader.getInstance().getGameDir().resolve("saves");
+    public void renderMessageScreen(GuiGraphics guiGraphics) {
+        renderHud(guiGraphics);
     }
 
-    // ====================================================================
-    // HudRenderCallback implementation
-
-    @Override
-    public void onHudRender(GuiGraphics drawContext, DeltaTracker tickDelta) {
-        renderHud(drawContext);
-    }
-
-    // ====================================================================
-    // Private
-
-    private void renderHud(GuiGraphics guiGraphics) {
+    public void renderHud(GuiGraphics guiGraphics) {
         if (this.client == null) return;
         if (this.hudText == null) return;
         if (!this.client.options.showAutosaveIndicator().get()) return;
         if (System.currentTimeMillis() - this.hudTextTime > TEXT_TIMEOUT) {
-            // Don't leave it sitting up there forever if we fail to call clearHudText()
             this.hudText = null;
             syslog().debug("hud text timed out.  somebody forgot to clean up");
             return;
