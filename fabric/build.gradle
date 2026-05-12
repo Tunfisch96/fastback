@@ -5,7 +5,7 @@ plugins {
 }
 
 base {
-	archivesName = "${project.archives_base_name}-fabric-${project.mod_version}"
+	archivesName = "${rootProject.ext.archivesBaseNameFabric}-${project.mod_version}"
 }
 
 repositories {
@@ -96,7 +96,7 @@ loom {
 
 jar {
 	from("LICENSE") {
-		rename { "${it}_${project.archives_base_name}" }
+		rename { "${it}_${archives_base_name}" }
 	}
 }
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 base {
-    archivesName = "${project.archives_base_name}-neoforge-${project.mod_version}"
+    archivesName = "${rootProject.ext.archivesBaseNameNeoForge}-${project.mod_version}"
 }
 
 repositories {
@@ -80,7 +80,7 @@ processResources {
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
+        rename { "${it}_${archives_base_name}" }
     }
     manifest {
         attributes([
