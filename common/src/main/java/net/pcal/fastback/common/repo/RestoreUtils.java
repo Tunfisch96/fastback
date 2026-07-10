@@ -59,7 +59,7 @@ abstract class RestoreUtils {
     // Package private
 
     static void doRestoreLocalSnapshot(final String snapshotNameToRestore, final RepoImpl repo, final UserLogger ulog) {
-        doRestoreSnapshot(snapshotNameToRestore, "file://" + mod().getWorldDirectory().toAbsolutePath(), repo, ulog);
+        doRestoreSnapshot(snapshotNameToRestore, mod().getWorldDirectory().toAbsolutePath().toUri().toString(), repo, ulog);
     }
 
     static void doRestoreRemoteSnapshot(final String snapshotNameToRestore, final RepoImpl repo, final UserLogger ulog) {
@@ -105,6 +105,10 @@ abstract class RestoreUtils {
         syslog().debug("Installing lfs locally in " + restoreTargetDirStr);
         ProcessUtils.doExec(new String[]{
                 "git", "-C", restoreTargetDirStr, "lfs", "install", "--local"
+        }, env, outputConsumer, outputConsumer);
+        syslog().debug("Fetching lfs objects from local repo " + repoUri);
+        ProcessUtils.doExec(new String[]{
+                "git", "-C", restoreTargetDirStr, "lfs", "fetch", "--all", repoUri
         }, env, outputConsumer, outputConsumer);
         syslog().debug("Checking out " + branchName + ", downloading lfs blobs");
         ProcessUtils.doExec(new String[]{
